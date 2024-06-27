@@ -1,0 +1,174 @@
+<ng-container *transloco="let t">
+  <div [fxLayout]="isTrue ? 'column': 'row'" fxLayoutGap="8" class="mt-24">
+    <div *ngIf="dialogMode" class="modal-title-container">
+      <h1
+        class="modal-title"
+        data-testid="customer.assessment-creation.assessment-expiry-modal-title"
+      >
+        {{ t(translationContext + 'EXPIRATION_TITLE') }}
+      </h1>
+
+      <ui-icon
+        class="mobile-close-button"
+        [size]="'24'"
+        [name]="'Close'"
+        (click)="dialogRef.close(false)"
+        data-testid="customer.assessment-creation.assessment-expiry-modal-close-button"
+      ></ui-icon>
+    </div>
+
+    <div fxLayout="row" fxLayoutGap="16">
+      <ui-tooltip
+        position="bottom"
+        [disabled]="!disabled"
+        [message]="t(translationContext + 'OPPOSITE_TOOLTIP')"
+      >
+        <ui-toggle
+          #deadlineCheckbox
+          class="deadline-toggle"
+          [disabled]="disabled"
+          [selected]="checkHasDeadline"
+          (toggle)="deadlineChecked($event)"
+          matTooltipPosition="below"
+          data-testid="customer.assessment-creation.assessment-expiry-toggle"
+        ></ui-toggle>
+      </ui-tooltip>
+
+      <strong>{{ t(translationContext + 'LABEL') }}</strong>
+    </div>
+
+    <p class="mt-24 mb-32">{{ t(translationContext + 'INSTRUCTIONS') }}</p>
+
+    <ng-container>
+      <form
+        [formGroup]="form"
+        novalidate
+        fxLayout="column"
+        fxLayoutGap="8"
+        [ngClass]="{ disabled: disabled || !checkHasDeadline }"
+      >
+        <div fxLayout="row" fxLayoutGap="8" class="form-container">
+          <ui-datepicker
+            class="expiration-date-picker"
+            formControlName="deadline_date"
+            [label]="t(translationContext + 'DATE')"
+            [minDate]="minimumDate.deadline_date"
+            [disabled]="disabled || !checkHasDeadline"
+            data-testid="customer.assessment-creation.assessment-expiry-date-picker"
+          ></ui-datepicker>
+
+          <tgo-time-picker
+            class="deadline-dropdown"
+            formControlName="deadline_time"
+            [startTime]="minimumTime"
+            [ngClass]="{ 'expiration-time-dropdown': isRebrand || data?.isRebrand }"
+            [disabled]="!checkHasDeadline"
+            [candidateDeadlineInDays]="candidateDeadlineInDays"
+            data-testid="customer.assessment-creation.assessment-expiry-time-picker"
+          ></tgo-time-picker>
+
+          <ui-dropdown
+            class="expiration-timezone-dropdown"
+            textField="name"
+            valueField="timezone"
+            formControlName="deadline_timezone"
+            [label]="t(translationContext + 'TIMEZONE')"
+            [valueList]="timeZoneOptions"
+            [allowMultipleSelection]="false"
+            [allowClear]="false"
+            data-testid="customer.assessment-review.candidate-expiration-timezone-select"
+          ></ui-dropdown>
+
+          <ng-container *ngIf="isManualSave && checkHasDeadline">
+            <ui-button
+              *ngIf="
+                (currentValue | deadlineFormat) !== (lastValue | deadlineFormat) ||
+                currentValue.deadline_timezone !== lastValue.deadline_timezone
+              "
+              [label]="t('COMMON.SAVE')"
+              [ngClass]="{ 'rebranded-manual-save-button': isRebrand || data?.isRebrand }"
+              [disabled]="disabled || !checkHasDeadline"
+              class="save-inline-button"
+              variant="ghost"
+              [size]="'big' | tgoRebrand : 'medium'"
+              (click)="manualSave()"
+              data-testid="customer.assessment-creation.assessment-expiry-save-inline"
+            >
+            </ui-button>
+          </ng-container>
+        </div>
+
+        <div
+          *ngIf="form.value.deadline_date"
+          class="expiry-date-info"
+          [innerHTML]="
+            t(translationContext + (dialogMode ? 'NEW_DEADLINE' : 'DEADLINE'), {
+              date: form.value.deadline_date
+                ? (currentValue | deadlineFormat : true)
+                : t(translationContext + 'DEADLINE_NOT_SET')
+            })
+          "
+          data-testid="customer.assessment-creation.assessment-expiry-date-set"
+        ></div>
+      </form>
+
+      <mat-checkbox
+        *ngIf="!isRebrand && !data?.isRebrand"
+        class="legacy-checkbox"
+        [(ngModel)]="sendReminds"
+        (ngModelChange)="!dialogMode && reminderChanged.emit($event)"
+        [disabled]="!checkHasDeadline"
+        data-testid="customer.assessment-creation.assessment-expiry-send-reminders-checkbox"
+      >
+        <span [innerHTML]="t(translationContext + 'SEND_REMINDERS')"></span>
+      </mat-checkbox>
+
+      <div *ngIf="isRebrand || data?.isRebrand" class="checkbox-container">
+        <ui-checkbox
+          *ngIf="isRebrand || data?.isRebrand"
+          [ngClass]="{ 'dialog-rebranded-checkbox': data?.isRebrand }"
+          class="rebranded-checkbox"
+          [checked]="sendReminds"
+          [disabled]="!checkHasDeadline"
+          (changed)="!dialogMode && reminderChanged.emit($event)"
+          data-testid="customer.assessment-creation.assessment-expiry-send-reminders-checkbox"
+        ></ui-checkbox>
+
+        <span
+          [innerHTML]="t(translationContext + 'SEND_REMINDERS')"
+          [ngClass]="{ 'disabled-span': !checkHasDeadline }"
+        ></span>
+      </div>
+
+      <div
+        *ngIf="checkHasDeadline && editMode && (currentValue | deadlineFormat) !== (initialValue | deadlineFormat)"
+        class="reminder-info"
+        [ngClass]="{ 'dialog-rebranded-reminder-info': isRebrand || data?.isRebrand }"
+      >
+        {{ t(translationContext + 'DEADLINE_CHANGES_NOTIFICATION_INFO') }}
+      </div>
+    </ng-container>
+
+    <div *ngIf="dialogMode" class="actions">
+      <ui-button
+        class="cancel-button"
+        [ngClass]="{ 'rebranded-button': isRebrand || data?.isRebrand }"
+        [label]="t('COMMON.CANCEL')"
+        [variant]="'secondary' | tgoRebrand : 'ghost'"
+        (click)="dialogRef.close(false)"
+        data-testid="customer.assessment-creation.assessment-expiry-cancel"
+      >
+      </ui-button>
+
+      <ui-button
+        class="save-button"
+        [ngClass]="{ 'rebranded-button': isRebrand || data?.isRebrand }"
+        [label]="isRebrand || data?.isRebrand ? t('COMMON.CONFIRM') : t('COMMON.SAVE')"
+        [variant]="'primary' | tgoRebrand : 'secondary'"
+        (click)="dialogRef.close(checkHasDeadline ? outputValue : { del: true })"
+        data-testid="customer.assessment-creation.assessment-expiry-save-inline"
+      >
+      </ui-button>
+    </div>
+  </div>
+</ng-container>

@@ -1,0 +1,200 @@
+<ng-container *transloco="let t">
+  <div class="p-24 flex-col" *ngIf="teamManagementService.dataSource?.data.length as count">
+    <div fxFlex="100" *ngIf="auth.currentSubscription | async as subscription" class="flex-row items-between justify-center">
+      <div class="mb-24 w-100-p flex-row items-between justify-center">
+        <div *ngIf="false | tgoRebrand : true">
+          <h3 class="title">{{ t(translationContext + 'TITLE') }}</h3>
+          <span class="subtitle">
+            {{ t(translationContext + 'ADD_REMOVE_MEMBERS') }}
+          </span>
+        </div>
+        <h3 *ngIf="true | tgoRebrand : false">{{ t(translationContext + 'ADD_REMOVE_MEMBERS') }}</h3>
+        <ui-button
+          id="add-team-member-button"
+          [label]="
+            t(translationContext + 'ADD_USER') +
+            (featuresService.hasFeature('f_unlimited_team_members') ? '' : ' (' + count + '/5)')
+          "
+          iconPosition="left"
+          iconName="Plus"
+          (click)="
+            count > 4 && !featuresService.hasFeature('f_unlimited_team_members') ? openUpgradeDialog() : addTeamMember()
+          "
+          [isPremium]="count > 4 && !featuresService.hasFeature('f_unlimited_team_members')"
+        >
+        </ui-button>
+      </div>
+    </div>
+
+    <!-- TABLE CONFIG -->
+    <ui-table
+      [ngClass]="{ hidden: !teamManagementService.dataSource || count === 0 }"
+      [config]="{
+        hidePagination: true,
+        columns: [
+          {
+            key: 'name',
+            headerCellTemplate: fullNameHeaderTemplate,
+            rowCellTemplate: isResponsive ? fullNameAndEmailRowTemplate : fullNameRowTemplate
+          },
+          { key: 'email', headerCellTemplate: emailHeaderTemplate, hidden: isResponsive },
+          { key: 'role', headerCellTemplate: roleHeaderTemplate, rowCellTemplate: roleRowTemplate },
+          {
+            key: 'actions',
+            headerCellTemplate: actionsHeaderTemplate,
+            rowCellTemplate: isResponsive ? actionsRowResponsiveTemplate : actionsRowTemplate
+          }
+        ]
+      }"
+      [data]="teamManagementService.dataSource.filteredData"
+    ></ui-table>
+
+    <!-- NAME -->
+    <ng-template #fullNameHeaderTemplate>
+      <h5>{{ t(translationContext + 'TABLE_HEADER.NAME') }}</h5>
+    </ng-template>
+
+    <ng-template #fullNameRowTemplate let-data> {{ data.first_name }} {{ data.last_name }} </ng-template>
+
+    <!-- EMAIL -->
+    <ng-template #emailHeaderTemplate>
+      <h5>{{ t(translationContext + 'TABLE_HEADER.EMAIL') }}</h5>
+    </ng-template>
+
+    <!-- NAME & EMAIL (responsive) -->
+    <ng-template #fullNameAndEmailRowTemplate let-data>
+      <div class="flex-col">
+        <span>{{ data.first_name }} {{ data.last_name }}</span>
+        <span class="email">{{ data.email }}</span>
+      </div>
+    </ng-template>
+
+    <!-- ROLE -->
+    <ng-template #roleHeaderTemplate>
+      <h5>{{ t(translationContext + 'TABLE_HEADER.ROLE') }}</h5>
+    </ng-template>
+
+    <ng-template #roleRowTemplate let-data>
+      <span *ngIf="data.is_main_user">{{ t('USER_ROLES.OWNER') }}</span>
+      <span *ngIf="!data.is_main_user"> {{ t('USER_ROLES.' + data.role | uppercase) }}</span>
+    </ng-template>
+
+    <!-- ACTIONS HEADER -->
+    <ng-template #actionsHeaderTemplate>
+      <h5 class="text-right">{{ t(translationContext + 'TABLE_HEADER.ACTIONS') }}</h5>
+    </ng-template>
+
+    <!-- ACTIONS ROW DESKTOP (if you are doing any change here, ensure changing also responsive logic) -->
+    <ng-template #actionsRowTemplate let-data>
+      <div class="w-100-p flex-row items-end justify-center">
+        <ui-button
+          *ngIf="userProfile.active_profile.is_main_user && data.role === 'admin' && !data.is_main_user"
+          (click)="transferOwnership(data)"
+          [tooltip]="t(translationContext + 'TRANSFER_OWNERSHIP')"
+          variant="icon-button"
+          [iconName]="'User-switch' | tgoRebrand : 'Switch'"
+          data-testid="transfer-ownership"
+        >
+        </ui-button>
+
+        <ui-button
+          [disabled]="
+            data.is_main_user ||
+            data.id === userProfile.id ||
+            getUserLevel(userProfile.active_profile.role) < getUserLevel(data.role) ||
+            data.login_type === 'google'
+          "
+          (click)="resetPassword(data)"
+          [tooltip]="
+            data.login_type === 'google'
+              ? t(translationContext + 'CANT_RESET_PASSWORD')
+              : t(translationContext + 'SEND_RESET_EMAIL')
+          "
+          variant="icon-button"
+          [iconName]="'Email-message' | tgoRebrand : 'Invite'"
+          data-testid="send-reset-email"
+        >
+        </ui-button>
+
+        <ui-button
+          [disabled]="
+            data.is_main_user ||
+            data.id === userProfile.id ||
+            (!userProfile.active_profile.is_main_user &&
+              getUserLevel(userProfile.active_profile.role) <= getUserLevel(data.role))
+          "
+          (click)="openUserDialog(data)"
+          [tooltip]="t('COMMON.EDIT')"
+          variant="icon-button"
+          iconName="Edit"
+          data-testid="edit-user"
+        >
+        </ui-button>
+
+        <ui-button
+          [disabled]="
+            data.is_main_user ||
+            data.id === userProfile.id ||
+            (!userProfile.active_profile.is_main_user &&
+              getUserLevel(userProfile.active_profile.role) <= getUserLevel(data.role))
+          "
+          (click)="removeUser(data)"
+          [tooltip]="t('COMMON.REMOVE')"
+          variant="icon-button"
+          iconName="Delete"
+          data-testid="remove-user"
+        >
+        </ui-button>
+      </div>
+    </ng-template>
+
+    <!-- ACTIONS ROW RESPONSIVE (if you are doing any change here, ensure changing also desktop logic) -->
+    <ng-template #actionsRowResponsiveTemplate let-data>
+      <div class="w-100-p flex-row items-end justify-center">
+        <ui-overflow-menu
+          [buttons]="[
+            {
+              icon: 'User-switch' | tgoRebrand : 'Switch',
+              label: t(translationContext + 'TRANSFER_OWNERSHIP'),
+              value: 'transferOwnership',
+              disabled: !(userProfile.active_profile.is_main_user && data.role === 'admin' && !data.is_main_user)
+            },
+            {
+              icon: 'Email-message' | tgoRebrand : 'Invite',
+              label: t(translationContext + 'SEND_RESET_EMAIL'),
+              value: 'resetPassword',
+              disabled:
+                data.is_main_user ||
+                data.id === userProfile.id ||
+                getUserLevel(userProfile.active_profile.role) < getUserLevel(data.role) ||
+                data.login_type === 'google'
+            },
+            {
+              icon: 'Edit',
+              label: t('COMMON.EDIT'),
+              value: 'editUser',
+              disabled:
+                data.is_main_user ||
+                data.id === userProfile.id ||
+                (!userProfile.active_profile.is_main_user &&
+                  getUserLevel(userProfile.active_profile.role) <= getUserLevel(data.role))
+            },
+            {
+              icon: 'Delete',
+              label: t('COMMON.REMOVE'),
+              value: 'removeUser',
+              isDestructive: true,
+              disabled:
+                data.is_main_user ||
+                data.id === userProfile.id ||
+                (!userProfile.active_profile.is_main_user &&
+                  getUserLevel(userProfile.active_profile.role) <= getUserLevel(data.role))
+            }
+          ]"
+          [iconTrigger]="'Menu-ellipsis'"
+          (selectItem)="handleMenuItemSelection($event, data)"
+        ></ui-overflow-menu>
+      </div>
+    </ng-template>
+  </div>
+</ng-container>

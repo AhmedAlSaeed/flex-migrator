@@ -1,0 +1,165 @@
+<ng-container *transloco="let t">
+  <div class="header">
+    <div class="title-container">
+      <h1>{{ t(translationContext + "ADD_NEW_TEAMMEMBERS") }}</h1>
+
+      <ui-icon
+        class="mobile-close-button"
+        [size]="'24'"
+        [name]="'Close'"
+        (click)="matDialogRef.close(false)"
+        data-testid="customer.add-users-dialog.close-button"
+      ></ui-icon>
+    </div>
+
+    <p class="mt-20 mb-32">
+      {{ t(translationContext + "ADD_NEW_TEAMMEMBERS_SUBTITLE") }}
+    </p>
+  </div>
+
+  <div
+    *ngIf="teamManagementService.dataSource?.data.length as count"
+    class="content-container"
+  >
+    <ng-container *ngIf="auth.currentSubscription | async as subscription">
+      <form
+        *ngIf="
+          count < 5 || featuresService.hasFeature('f_unlimited_team_members')
+        "
+        class="team-member"
+        name="inviteForm"
+        [formGroup]="inviteForm"
+        novalidate
+      >
+        <ng-container formArrayName="invitedArrayEmailForm">
+          <div
+            *ngFor="let inviteControl of this.inviteArray.controls; index as i"
+            class="control-container"
+            [formGroupName]="i"
+          >
+            <ui-field
+              #input
+              formControlName="username"
+              class="work-email-input-field"
+              [label]="t(translationContext + 'WORK_EMAIL')"
+              [errors]="[
+                inviteControl.get('username').hasError('serverError')
+                  ? t('ERRORS.REPEATED_NAME')
+                  : ''
+              ]"
+              data-testid="customer.assessment-review.work-email-input-field"
+            ></ui-field>
+
+            <div
+              class="role-selector-container"
+              [ngClass]="{
+                'rebranded-role-selector-container': data.isRebrand
+              }"
+            >
+              <button
+                class="selector-button"
+                [disabled]="input.disabled"
+                matSuffix
+                [matMenuTriggerFor]="role"
+                mat-stroked-button
+              >
+                <span class="selector-button-span">{{
+                  rolesByKey[inviteControl.get("role").value].name
+                }}</span>
+
+                <tgo-icon icon="chevron-down"></tgo-icon>
+              </button>
+
+              <mat-menu
+                xPosition="before"
+                class="role-selector"
+                #role="matMenu"
+              >
+                <button
+                  *ngFor="let role of roles"
+                  mat-menu-item
+                  [ngClass]="{
+                    'rebranded-selected-role-button':
+                      data.isRebrand &&
+                      inviteControl.get('role').value === role.key
+                  }"
+                  (click)="inviteControl.get('role').setValue(role.key)"
+                  class="flex-col"
+                >
+                  <strong>{{ role.name }}</strong>
+                  <span>{{ role.desc }}</span>
+                </button>
+              </mat-menu>
+            </div>
+
+            <ui-button
+              variant="icon-button"
+              [iconName]="'Close' | tgoRebrand : 'Delete-in-line'"
+              class="ui-button-black remove-row-btn"
+              (click)="removeUserForm(i)"
+              [tooltip]="t('TABLE.ACTIONS.REMOVE')"
+              [disabled]="this.inviteArray?.controls?.length <= 1"
+              data-testid="customer.assessment-review.remove-user-form-button"
+            >
+            </ui-button>
+          </div>
+        </ng-container>
+      </form>
+
+      <div class="form-buttons">
+        <ui-button
+          id="add-team-member-button"
+          class="align-left"
+          [ngClass]="{ 'rebranded-add-team-member-button': data.isRebrand }"
+          [variant]="'tertiary' | tgoRebrand : 'text'"
+          [iconName]="'Add' | tgoRebrand : 'User-add-in-line'"
+          [label]="
+            (t(translationContext + 'ADD_MORE')
+              | tgoRebrand : t(translationContext + 'ADD_ANOTHER')) +
+            (featuresService.hasFeature('f_unlimited_team_members')
+              ? ''
+              : ' (' + (count + this.inviteArray.controls.length) + '/5)')
+          "
+          [tooltip]="
+            featuresService.hasFeature('f_unlimited_team_members')
+              ? ''
+              : featuresService.tooltips['f_unlimited_team_members']
+          "
+          [isPremium]="
+            !featuresService.hasFeature('f_unlimited_team_members') &&
+            count + this.inviteArray.controls.length > 4
+          "
+          (click)="
+            count + this.inviteArray.controls.length > 4
+              ? addUserIfFeature()
+              : addUserForm()
+          "
+          iconPosition="left"
+          data-testid="customer.assessment-review.add-team-member-button"
+        >
+        </ui-button>
+      </div>
+    </ng-container>
+  </div>
+
+  <div class="footer gap-20px items-end justify-center">
+    <ui-button
+      [variant]="'secondary' | tgoRebrand : 'ghost'"
+      [label]="t('COMMON.CANCEL')"
+      (click)="closeInvitationsModal()"
+      data-testid="customer.assessment-review.common-cancel-button"
+    >
+    </ui-button>
+
+    <ui-button
+      [loading]="loading"
+      [disabled]="inviteForm.invalid || !checkFormValidEntries()"
+      [label]="
+        t('COMMON.SAVE') | tgoRebrand : t(translationContext + 'INVITE_BUTTON')
+      "
+      (click)="submitInvitations()"
+      data-testid="customer.assessment-review.common-save-button"
+    >
+    </ui-button>
+  </div>
+</ng-container>
